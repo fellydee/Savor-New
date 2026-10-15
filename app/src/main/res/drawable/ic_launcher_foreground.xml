@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54">
+        <!-- Main Chef Toque & Cloche Silhouette -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M38,68
+                h32
+                c2.2,0 4,-1.8 4,-4
+                v-6
+                c0,-1.5 -0.8,-2.8 -2.1,-3.5
+                c2.8,-1.7 4.6,-4.8 4.6,-8.3
+                c0,-4.5 -3.1,-8.3 -7.3,-9.4
+                c0.5,-1.3 0.8,-2.7 0.8,-4.2
+                c0,-6.3 -5.1,-11.4 -11.4,-11.4
+                c-3.1,0 -6,1.2 -8.1,3.3
+                c-2.1,-2.1 -5,-3.3 -8.1,-3.3
+                c-6.3,0 -11.4,5.1 -11.4,11.4
+                c0,1.5 0.3,2.9 0.8,4.2
+                c-4.2,1.1 -7.3,4.9 -7.3,9.4
+                c0,3.5 1.8,6.6 4.6,8.3
+                c-1.3,0.7 -2.1,2 -2.1,3.5
+                v6
+                c0,2.2 1.8,4 4,4
+                z" />
+        <!-- Chef Hat Base Band Accent in Warm Golden -->
+        <path
+            android:fillColor="#FFD54F"
+            android:pathData="M38,62 h32 v5 h-32 z" />
+        <!-- Decorative Savor Fork & Flower Sprout Center -->
+        <path
+            android:fillColor="#E65100"
+            android:pathData="M54,40
+                c1.5,-2 4,-3.2 6.5,-3.2
+                c0,2.5 -1.2,5 -3.2,6.5
+                c-1.5,1.1 -3.3,1.7 -5.3,1.7
+                c0,-1.9 0.6,-3.6 2,-5z" />
+        <path
+            android:fillColor="#E65100"
+            android:pathData="M54,40
+                c-1.5,-2 -4,-3.2 -6.5,-3.2
+                c0,2.5 1.2,5 3.2,6.5
+                c1.5,1.1 3.3,1.7 5.3,1.7
+                c0,-1.9 -0.6,-3.6 -2,-5z" />
+        <path
+            android:fillColor="#E65100"
+            android:pathData="M52.5,42 h3 v14 h-3 z" />
+        <!-- Bottom Smile / Serving Plate Rim -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M34,73
+                c0,0 9,6 20,6
+                c11,0 20,-6 20,-6
+                c1.2,-0.7 2.8,-0.2 3.4,1
+                c0.6,1.2 0.2,2.7 -1,3.4
+                c-6.2,3.8 -14.6,5.6 -22.4,5.6
+                c-7.8,0 -16.2,-1.8 -22.4,-5.6
+                c-1.2,-0.7 -1.6,-2.2 -1,-3.4
+                c0.6,-1.2 2.2,-1.7 3.4,-1
+                z" />
+    </group>
+</vector>

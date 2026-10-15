@@ -1,0 +1,6 @@
+{
+  "name": "Savor",
+  "description": "Recipe-sharing social media app with video reels, stories, meal planning, and Chef Flower rankings.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
