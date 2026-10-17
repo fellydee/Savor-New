@@ -344,6 +344,45 @@ fun VideoReelPlayer(
     }
 }
 
+// --- Savor Brand Logo ---
+@Composable
+fun SavorBrandLogo(
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+            .testTag("savor_logo_header")
+    ) {
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.ic_savor_logo),
+            contentDescription = "Savor Logo",
+            modifier = Modifier.size(34.dp)
+        )
+        Spacer(modifier = Modifier.width(9.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Savor",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = (-0.6).sp,
+                    fontSize = 24.sp
+                ),
+                color = SavorAccentOrange
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Box(
+                modifier = Modifier
+                    .size(5.dp)
+                    .clip(CircleShape)
+                    .background(SavorGoldenYellow)
+            )
+        }
+    }
+}
+
 // --- Savor Mobile Top Bar with Activity Badge ---
 @Composable
 fun SavorTopBar(
@@ -370,39 +409,11 @@ fun SavorTopBar(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
-            // Savor Brand Logo + Text
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .clickable { viewModel.navigateTo(Screen.Feed) }
-                    .testTag("savor_logo_header")
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(SavorGradientBrush)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocalFlorist,
-                        contentDescription = "Savor Logo",
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "Savor",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = (-0.5).sp
-                        ),
-                        color = SavorAccentOrange
-                    )
-                }
-            }
+            // Savor Brand Logo + Wordmark
+            SavorBrandLogo(
+                onClick = { viewModel.navigateTo(Screen.Feed) },
+                modifier = Modifier.testTag("savor_logo_header")
+            )
 
             // Action Buttons (Dark mode & Activity / Quick-Access)
             Row(verticalAlignment = Alignment.CenterVertically) {

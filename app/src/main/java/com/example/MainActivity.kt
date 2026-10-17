@@ -16,9 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.Screen
 import com.example.ui.SavorViewModel
+import com.example.ui.auth.SignInScreen
 import com.example.ui.components.*
 import com.example.ui.screens.*
 import com.example.ui.theme.SavorTheme
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,20 +51,40 @@ class MainActivity : ComponentActivity() {
             }
 
             SavorTheme(darkTheme = isDark) {
-                val isStoryViewer = currentScreen is Screen.StoryViewer
-                val isChatThread = currentScreen is Screen.Chat
-                val isCookingMode = currentScreen is Screen.CookingMode
+                val auth = remember { FirebaseAuth.getInstance() }
+                var currentFirebaseUser by remember { mutableStateOf(auth.currentUser) }
 
-                val showTopBar = !isStoryViewer && !isChatThread && !isCookingMode
-                val showBottomNav = !isCookingMode && (
-                    currentScreen is Screen.Feed ||
-                    currentScreen is Screen.Explore ||
-                    currentScreen is Screen.Create ||
-                    currentScreen is Screen.MealPlan ||
-                    currentScreen is Screen.Profile
-                )
+                DisposableEffect(auth) {
+                    val listener = FirebaseAuth.AuthStateListener { fbAuth ->
+                        currentFirebaseUser = fbAuth.currentUser
+                    }
+                    auth.addAuthStateListener(listener)
+                    onDispose {
+                        auth.removeAuthStateListener(listener)
+                    }
+                }
 
-                Scaffold(
+                if (currentFirebaseUser == null) {
+                    SignInScreen(
+                        onAuthSuccess = {
+                            currentFirebaseUser = auth.currentUser
+                        }
+                    )
+                } else {
+                    val isStoryViewer = currentScreen is Screen.StoryViewer
+                    val isChatThread = currentScreen is Screen.Chat
+                    val isCookingMode = currentScreen is Screen.CookingMode
+
+                    val showTopBar = !isStoryViewer && !isChatThread && !isCookingMode
+                    val showBottomNav = !isCookingMode && (
+                        currentScreen is Screen.Feed ||
+                        currentScreen is Screen.Explore ||
+                        currentScreen is Screen.Create ||
+                        currentScreen is Screen.MealPlan ||
+                        currentScreen is Screen.Profile
+                    )
+
+                    Scaffold(
                     topBar = {
                         if (showTopBar) {
                             SavorTopBar(viewModel = savorViewModel)
@@ -167,3 +189,5 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+}
+

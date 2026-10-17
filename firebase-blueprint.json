@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile and chef stats",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "username": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "city": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "bio": { "type": "string" },
+        "followersCount": { "type": "integer" },
+        "followingCount": { "type": "integer" },
+        "isPremium": { "type": "boolean" },
+        "isVerified": { "type": "boolean" },
+        "totalLikesReceived": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "username", "displayName"]
+    },
+    "RecipeDocument": {
+      "title": "RecipeDocument",
+      "description": "Shared recipes published by chefs",
+      "type": "object",
+      "properties": {
+        "authorId": { "type": "string" },
+        "authorUsername": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "cookTimeMinutes": { "type": "integer" },
+        "servings": { "type": "integer" },
+        "mediaType": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "privacyLevel": { "type": "string" },
+        "likesCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["authorId", "authorUsername", "title"]
+    },
+    "ShoppingItemDocument": {
+      "title": "ShoppingItemDocument",
+      "description": "User grocery shopping list items",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "amount": { "type": "string" },
+        "unit": { "type": "string" },
+        "isChecked": { "type": "boolean" },
+        "sourceRecipeTitle": { "type": "string" },
+        "estimatedPriceUsd": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Public culinary profile documents"
+    },
+    "/recipes/{recipeId}": {
+      "schema": { "$ref": "#/entities/RecipeDocument" },
+      "description": "Community food posts and recipes"
+    },
+    "/users/{userId}/shoppingItems/{itemId}": {
+      "schema": { "$ref": "#/entities/ShoppingItemDocument" },
+      "description": "Personal shopping list items for an authenticated cook"
+    }
+  }
+}

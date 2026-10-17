@@ -20,11 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.model.*
 import com.example.ui.Screen
 import com.example.ui.SavorViewModel
@@ -51,12 +53,7 @@ fun FeedScreen(
             .fillMaxSize()
             .testTag("feed_screen")
     ) {
-        // --- 1. Orange-to-Gold Gradient Hero Banner ---
-        item {
-            FeedHeroBanner(currentUser = currentUser)
-        }
-
-        // --- 2. Stories Bar ---
+        // --- 1. Stories Bar (Top of Feed) ---
         item {
             StoriesBar(
                 stories = stories,
@@ -68,7 +65,7 @@ fun FeedScreen(
             )
         }
 
-        // --- 3. Recipe Posts ---
+        // --- 2. Recipe Posts ---
         items(visibleRecipes, key = { it.id }) { recipe ->
             FeedRecipeCard(
                 recipe = recipe,
@@ -83,75 +80,6 @@ fun FeedScreen(
     }
 }
 
-// --- Gradient Hero Banner ---
-@Composable
-fun FeedHeroBanner(
-    currentUser: User,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        Color(0xFFF25A19), // hsl(22 93% 55%) Accent Orange
-                        Color(0xFFFFB800)  // hsl(43 100% 50%) Golden Yellow
-                    )
-                )
-            )
-            .padding(horizontal = 20.dp, vertical = 22.dp)
-            .testTag("feed_hero_banner")
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "SAVOR SOCIAL",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            letterSpacing = 2.sp,
-                            fontWeight = FontWeight.Black
-                        ),
-                        color = Color.White.copy(alpha = 0.9f)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    ChefFlowerBadge(flowerCount = currentUser.chefFlowers)
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Welcome back, ${currentUser.displayName.substringBefore(" ")}!",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold),
-                    color = Color.White
-                )
-                Text(
-                    text = "Discover fresh culinary inspiration & trending reels in ${currentUser.city}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.92f)
-                )
-            }
-
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.25f))
-            ) {
-                Icon(
-                    imageVector = Icons.Default.RestaurantMenu,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(30.dp)
-                )
-            }
-        }
-    }
-}
-
 // --- Stories Bar ---
 @Composable
 fun StoriesBar(
@@ -161,10 +89,10 @@ fun StoriesBar(
     onCreateStoryClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
+    Column(
         modifier = modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
             .testTag("stories_bar")
     ) {
         LazyRow(
@@ -230,18 +158,29 @@ fun StoriesBar(
                                 .background(MaterialTheme.colorScheme.surface)
                                 .padding(2.dp)
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
-                                    .background(SavorGoldenYellow)
-                            ) {
-                                Text(
-                                    text = story.authorUsername.take(2).uppercase(),
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = Color.White
+                            if (story.authorAvatarUrl.isNotEmpty()) {
+                                AsyncImage(
+                                    model = story.authorAvatarUrl,
+                                    contentDescription = "${story.authorUsername}'s Story",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
                                 )
+                            } else {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                        .background(SavorGoldenYellow)
+                                ) {
+                                    Text(
+                                        text = story.authorUsername.take(2).uppercase(),
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = Color.White
+                                    )
+                                }
                             }
                         }
                     }
@@ -262,6 +201,11 @@ fun StoriesBar(
                 }
             }
         }
+
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+            thickness = 0.5.dp
+        )
     }
 }
 

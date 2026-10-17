@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.username is string &&
+             data.username.size() >= 2 &&
+             data.displayName is string;
+    }
+
+    function isValidRecipe(data) {
+      return data.authorId is string &&
+             data.authorId == request.auth.uid &&
+             data.title is string &&
+             data.title.size() >= 1 &&
+             data.authorUsername is string;
+    }
+
+    function isValidShoppingItem(data, userId) {
+      return data.userId is string &&
+             data.userId == userId &&
+             data.name is string &&
+             data.name.size() >= 1;
+    }
+
+    // User profiles: readable by authenticated users, writable only by owner
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUserProfile(request.resource.data);
+      allow update: if isOwner(userId) &&
+                       request.resource.data.userId == resource.data.userId &&
+                       isValidUserProfile(request.resource.data);
+      allow delete: if isOwner(userId);
+
+      // Subcollection: Shopping items scoped to user
+      match /shoppingItems/{itemId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Subcollection: Meal plans scoped to user
+      match /mealPlans/{slotId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Community recipes
+    match /recipes/{recipeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidRecipe(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (resource.data.authorId == request.auth.uid && isValidRecipe(request.resource.data)) ||
+        // Allow liking: only like count or engagement stats updated
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'commentsCount', 'shareCount']))
+      );
+      allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+    }
+
+    // Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
