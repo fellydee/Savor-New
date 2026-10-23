@@ -1,6 +1,10 @@
 package com.example.ui.screens
 
+import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,10 +21,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.model.Recipe
 import com.example.data.model.User
 import com.example.ui.Screen
@@ -29,6 +36,8 @@ import com.example.ui.components.ChefFlowerBadge
 import com.example.ui.components.FoodVisualThumbnail
 import com.example.ui.components.VerificationBadge
 import com.example.ui.theme.*
+import java.io.File
+import java.io.FileOutputStream
 
 @Composable
 fun ProfileScreen(
@@ -133,18 +142,29 @@ fun ProfileScreen(
                             .background(SavorStoryRingGradient)
                             .padding(3.dp)
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                                .background(SavorGoldenYellow)
-                        ) {
-                            Text(
-                                text = user.displayName.take(1),
-                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                                color = Color.White
+                        if (user.avatarUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = user.avatarUrl,
+                                contentDescription = "Profile picture",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
                             )
+                        } else {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                                    .background(SavorGoldenYellow)
+                            ) {
+                                Text(
+                                    text = user.displayName.take(1).ifBlank { "U" },
+                                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color.White
+                                )
+                            }
                         }
                     }
 
@@ -390,47 +410,162 @@ fun ProfileScreen(
 
     // --- Edit Profile Dialog ---
     if (showEditProfileDialog) {
+        val context = LocalContext.current
         var editName by remember { mutableStateOf(user.displayName) }
+        var editUsername by remember { mutableStateOf(user.username) }
         var editBio by remember { mutableStateOf(user.bio) }
         var editCity by remember { mutableStateOf(user.city) }
+        var editAvatarUrl by remember { mutableStateOf(user.avatarUrl) }
+
+        // Gallery Photo Picker launcher
+        val photoPickerLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.PickVisualMedia()
+        ) { uri ->
+            if (uri != null) {
+                editAvatarUrl = uri.toString()
+            }
+        }
+
+        // Camera photo launcher
+        val cameraLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.TakePicturePreview()
+        ) { bitmap ->
+            if (bitmap != null) {
+                try {
+                    val file = File(context.cacheDir, "avatar_${System.currentTimeMillis()}.jpg")
+                    FileOutputStream(file).use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                    }
+                    editAvatarUrl = file.toURI().toString()
+                } catch (e: Exception) {
+                    android.util.Log.e("ProfileScreen", "Failed to cache camera photo", e)
+                }
+            }
+        }
+
+        val cameraPermissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                cameraLauncher.launch(null)
+            }
+        }
 
         AlertDialog(
             onDismissRequest = { showEditProfileDialog = false },
             title = { Text("Edit Profile", fontWeight = FontWeight.Bold) },
             text = {
-                Column {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Profile Photo Preview & Change Buttons
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        if (editAvatarUrl.isNotBlank()) {
+                            AsyncImage(
+                                model = editAvatarUrl,
+                                contentDescription = "Avatar Preview",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(44.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f).testTag("upload_profile_gallery_button")
+                        ) {
+                            Icon(imageVector = Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Gallery", fontSize = 12.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.weight(1f).testTag("take_profile_camera_button")
+                        ) {
+                            Icon(imageVector = Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Camera", fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     OutlinedTextField(
                         value = editName,
                         onValueChange = { editName = it },
                         label = { Text("Display Name") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().testTag("edit_display_name_input")
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editUsername,
+                        onValueChange = { editUsername = it },
+                        label = { Text("Username (@handle)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().testTag("edit_username_input")
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = editBio,
                         onValueChange = { editBio = it },
-                        label = { Text("Bio") },
+                        label = { Text("Bio (Share your culinary passion)") },
                         maxLines = 3,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().testTag("edit_bio_input")
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = editCity,
                         onValueChange = { editCity = it },
-                        label = { Text("City (e.g. Austin, TX)") },
+                        label = { Text("City & State (e.g. Austin, TX)") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().testTag("edit_city_input")
                     )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.repository.updateProfile(editName, editBio, editCity)
+                        viewModel.repository.updateProfile(
+                            displayName = editName,
+                            bio = editBio,
+                            city = editCity,
+                            avatarUrl = editAvatarUrl,
+                            username = editUsername
+                        )
                         showEditProfileDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SavorAccentOrange)
+                    colors = ButtonDefaults.buttonColors(containerColor = SavorAccentOrange),
+                    modifier = Modifier.testTag("save_profile_button")
                 ) {
                     Text("Save", color = Color.White)
                 }

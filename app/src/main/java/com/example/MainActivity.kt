@@ -13,6 +13,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.Screen
 import com.example.ui.SavorViewModel
@@ -64,19 +65,47 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                if (currentFirebaseUser == null) {
+                val context = LocalContext.current
+                LaunchedEffect(Unit) {
+                    try {
+                        savorViewModel.firestoreRepository = com.example.data.firestore.FirestoreRepository(context)
+                    } catch (e: Exception) {
+                        android.util.Log.w("MainActivity", "FirestoreRepository init deferred: ${e.message}")
+                    }
+                }
+
+                LaunchedEffect(currentFirebaseUser) {
+                    currentFirebaseUser?.let { fbUser ->
+                        savorViewModel.syncFirebaseUser(
+                            userId = fbUser.uid,
+                            email = fbUser.email ?: "",
+                            displayName = fbUser.displayName ?: "",
+                            avatarUrl = fbUser.photoUrl?.toString() ?: ""
+                        )
+                    }
+                }
+
+                var isGuestMode by remember { mutableStateOf(false) }
+
+                if (currentFirebaseUser == null && !isGuestMode) {
                     SignInScreen(
                         onAuthSuccess = {
-                            currentFirebaseUser = auth.currentUser
+                            if (auth.currentUser != null) {
+                                currentFirebaseUser = auth.currentUser
+                            } else {
+                                isGuestMode = true
+                            }
                         }
                     )
                 } else {
                     val isStoryViewer = currentScreen is Screen.StoryViewer
-                    val isChatThread = currentScreen is Screen.Chat
+                    val isChatThread = currentScreen is Screen.Chat || currentScreen is Screen.GroupChat
                     val isCookingMode = currentScreen is Screen.CookingMode
+                    val isLiveStream = currentScreen is Screen.LiveStream
+                    val isAdmin = currentScreen is Screen.AdminModeration
 
-                    val showTopBar = !isStoryViewer && !isChatThread && !isCookingMode
-                    val showBottomNav = !isCookingMode && (
+                    val showTopBar = !isStoryViewer && !isChatThread && !isCookingMode && !isLiveStream && !isAdmin
+                    val showBottomNav = !isCookingMode && !isLiveStream && (
                         currentScreen is Screen.Feed ||
                         currentScreen is Screen.Explore ||
                         currentScreen is Screen.Create ||
@@ -116,6 +145,9 @@ class MainActivity : ComponentActivity() {
                             is Screen.NotificationCenter -> NotificationCenterScreen(viewModel = savorViewModel)
                             is Screen.Messages -> DirectMessagesInboxScreen(viewModel = savorViewModel)
                             is Screen.Chat -> ChatThreadScreen(conversationId = scr.conversationId, viewModel = savorViewModel)
+                            is Screen.GroupChat -> GroupChatThreadScreen(groupId = scr.groupId, viewModel = savorViewModel)
+                            is Screen.AdminModeration -> AdminModerationScreen(viewModel = savorViewModel, onNavigateBack = { savorViewModel.navigateBack() })
+                            is Screen.LiveStream -> LiveStreamScreen(sessionId = scr.sessionId, viewModel = savorViewModel, onNavigateBack = { savorViewModel.navigateBack() })
                             is Screen.ShoppingList -> ShoppingListScreen(viewModel = savorViewModel)
                             is Screen.Leaderboard -> LeaderboardScreen(viewModel = savorViewModel)
                             is Screen.Checkout -> CheckoutScreen(viewModel = savorViewModel)

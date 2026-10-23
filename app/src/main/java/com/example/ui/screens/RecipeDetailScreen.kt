@@ -98,6 +98,9 @@ fun RecipeDetailScreen(
     var reviewRating by remember { mutableStateOf(5) }
     var reviewText by remember { mutableStateOf("") }
     var showReviewInput by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var reportReason by remember { mutableStateOf<ReportReason>(ReportReason.ALLERGEN_MISLABEL) }
+    var reportDetails by remember { mutableStateOf("") }
     val checkedSteps = remember { mutableStateMapOf<Int, Boolean>() }
 
     LazyColumn(
@@ -119,6 +122,10 @@ fun RecipeDetailScreen(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Report Recipe
+                    IconButton(onClick = { showReportDialog = true }, modifier = Modifier.testTag("report_recipe_button")) {
+                        Icon(imageVector = Icons.Default.Flag, contentDescription = "Report Recipe", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     // Add to Playlist / Collection
                     IconButton(onClick = { viewModel.openAddToCollection(recipe) }) {
                         Icon(imageVector = Icons.Default.BookmarkAdd, contentDescription = "Add to Playlist", tint = MaterialTheme.colorScheme.onBackground)
@@ -152,6 +159,144 @@ fun RecipeDetailScreen(
                         .padding(horizontal = 16.dp)
                         .clip(RoundedCornerShape(20.dp))
                 )
+            }
+
+            // Video Studio Specs & Analytics (Views, Watch Time, Completion Rate, Retention)
+            if (recipe.mediaType == MediaType.VIDEO) {
+                val analytics = recipe.videoAnalytics ?: VideoAnalytics(
+                    totalViews = 1240,
+                    avgWatchSeconds = (recipe.videoDurationSeconds * 0.76f),
+                    completionRatePercent = 78f,
+                    retentionCurve = listOf(100f, 91f, 82f, 75f, 64f)
+                )
+
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Analytics,
+                                    contentDescription = null,
+                                    tint = SavorAccentOrange,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Advanced Video Analytics",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
+
+                            // Transcoding Quality Badge
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = SavorAccentOrange.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = recipe.videoTranscodingQuality.label,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = SavorAccentOrange,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        if (recipe.videoFilterApplied != VideoFilter.ORIGINAL) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Filter: ${recipe.videoFilterApplied.displayName}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("${analytics.totalViews}", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                    Text("Views", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("${analytics.avgWatchSeconds.toInt()}s / ${recipe.videoDurationSeconds}s", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                                    Text("Avg Watch", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("${analytics.completionRatePercent.toInt()}%", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E7D32))
+                                    Text("Completion", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Audience Retention Drop-off Graph
+                        Text(
+                            text = "Audience Retention Curve:",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.Bottom,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(36.dp)
+                        ) {
+                            analytics.retentionCurve.forEachIndexed { i, percent ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height((percent * 0.28f).dp)
+                                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                            .background(SavorAccentOrange.copy(alpha = 0.5f + (i * 0.08f)))
+                                    )
+                                    Text(
+                                        text = "${percent.toInt()}%",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -890,6 +1035,68 @@ fun RecipeDetailScreen(
         item {
             Spacer(modifier = Modifier.height(80.dp))
         }
+    }
+
+    if (showReportDialog) {
+        AlertDialog(
+            onDismissRequest = { showReportDialog = false },
+            title = { Text("Report Recipe to Trust & Safety") },
+            text = {
+                Column {
+                    Text(
+                        text = "Why are you reporting '${recipe.title}'?",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    ReportReason.values().forEach { reason ->
+                        val isSelected = reportReason == reason
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { reportReason = reason }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = { reportReason = reason },
+                                colors = RadioButtonDefaults.colors(selectedColor = SavorAccentOrange)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = reason.label, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = reportDetails,
+                        onValueChange = { reportDetails = it },
+                        label = { Text("Additional details (optional)") },
+                        placeholder = { Text("Describe specific hazard or issue...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 3
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.reportRecipe(recipe.id, reportReason, reportDetails)
+                        showReportDialog = false
+                        reportDetails = ""
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Submit Report", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReportDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

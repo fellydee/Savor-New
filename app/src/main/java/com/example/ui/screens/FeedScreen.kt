@@ -43,6 +43,8 @@ fun FeedScreen(
     val currentUser by viewModel.currentUser.collectAsState()
     val users by viewModel.users.collectAsState()
 
+    val liveStreams by viewModel.liveStreams.collectAsState()
+
     // Filter recipes by privacy permissions
     val visibleRecipes = remember(recipes, currentUser, users) {
         recipes.filter { viewModel.repository.canUserViewRecipe(it) }
@@ -53,14 +55,22 @@ fun FeedScreen(
             .fillMaxSize()
             .testTag("feed_screen")
     ) {
-        // --- 1. Stories Bar (Top of Feed) ---
+        // --- 1. Stories & Live Streams Bar (Top of Feed) ---
         item {
             StoriesBar(
                 stories = stories,
+                liveStreams = liveStreams,
                 currentUser = currentUser,
                 onStoryClick = { storyId -> viewModel.navigateTo(Screen.StoryViewer(storyId)) },
                 onCreateStoryClick = {
                     viewModel.postStory("", "Cooking vibes today! 🍳")
+                },
+                onLiveClick = { sessionId ->
+                    viewModel.navigateTo(Screen.LiveStream(sessionId))
+                },
+                onGoLiveClick = {
+                    val session = viewModel.startLiveStream("Kitchen Masterclass with ${currentUser.displayName}")
+                    viewModel.navigateTo(Screen.LiveStream(session.id))
                 }
             )
         }
@@ -80,13 +90,16 @@ fun FeedScreen(
     }
 }
 
-// --- Stories Bar ---
+// --- Stories & Live Bar ---
 @Composable
 fun StoriesBar(
     stories: List<Story>,
+    liveStreams: List<LiveStreamSession>,
     currentUser: User,
     onStoryClick: (String) -> Unit,
     onCreateStoryClick: () -> Unit,
+    onLiveClick: (String) -> Unit,
+    onGoLiveClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -101,6 +114,38 @@ fun StoriesBar(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
+            // "Go Live" (🔴) Button
+            item {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clickable { onGoLiveClick() }
+                        .testTag("go_live_button")
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Color(0xFFE53935), CircleShape)
+                            .background(Color(0xFFE53935).copy(alpha = 0.12f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Videocam,
+                            contentDescription = "Go Live",
+                            tint = Color(0xFFE53935),
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Go Live 🔴",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE53935)),
+                        maxLines = 1
+                    )
+                }
+            }
+
             // "Your Story" (+) Bubble
             item {
                 Column(
@@ -129,6 +174,74 @@ fun StoriesBar(
                         text = "Your Story",
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 1
+                    )
+                }
+            }
+
+            // Active Live Streams (Highlighted with Red LIVE Tag)
+            items(liveStreams, key = { it.id }) { live ->
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clickable { onLiveClick(live.id) }
+                        .testTag("live_stream_avatar_${live.id}")
+                ) {
+                    Box(
+                        contentAlignment = Alignment.BottomCenter,
+                        modifier = Modifier.size(68.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .background(Color(0xFFE53935))
+                                .padding(2.5.dp)
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .padding(2.dp)
+                            ) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                        .background(SavorGoldenYellow)
+                                ) {
+                                    Text(
+                                        text = live.hostDisplayName.take(2).uppercase(),
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+
+                        // LIVE badge pill
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFE53935),
+                            modifier = Modifier.offset(y = 4.dp)
+                        ) {
+                            Text(
+                                text = "LIVE",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontSize = 9.sp),
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = live.hostUsername,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

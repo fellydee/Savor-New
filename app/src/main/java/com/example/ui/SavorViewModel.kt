@@ -2,9 +2,11 @@ package com.example.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.firestore.FirestoreRepository
 import com.example.data.model.*
 import com.example.data.repository.SavorRepository
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 
 sealed class Screen {
     object Feed : Screen()
@@ -19,6 +21,7 @@ sealed class Screen {
     object NotificationCenter : Screen()
     object Messages : Screen()
     data class Chat(val conversationId: String) : Screen()
+    data class GroupChat(val groupId: String) : Screen()
     object ShoppingList : Screen()
     object Leaderboard : Screen()
     object Checkout : Screen()
@@ -27,11 +30,15 @@ sealed class Screen {
     object Collections : Screen()
     data class CollectionDetail(val collectionId: String) : Screen()
     object NutritionalDatabase : Screen()
+    object AdminModeration : Screen()
+    data class LiveStream(val sessionId: String) : Screen()
 }
 
 class SavorViewModel(
     val repository: SavorRepository = SavorRepository()
 ) : ViewModel() {
+
+    var firestoreRepository: FirestoreRepository? = null
 
     // Current Screen Navigation Stack
     private val _currentScreen = MutableStateFlow<Screen>(Screen.Feed)
@@ -81,6 +88,16 @@ class SavorViewModel(
     val activities = repository.activities
     val conversations = repository.conversations
     val messages = repository.messages
+    val groupConversations = repository.groupConversations
+    val groupMessages = repository.groupMessages
+    val appLanguage = repository.appLanguage
+    val liveStreams = repository.liveStreams
+    val activeLiveSession = repository.activeLiveSession
+    val moderationReports = repository.moderationReports
+    val verificationAudits = repository.verificationAudits
+    val refundHistory = repository.refundHistory
+    val promoCodes = repository.promoCodes
+    val smsSettings = repository.smsSettings
     val comments = repository.comments
     val shoppingList = repository.shoppingList
     val mealPlan = repository.mealPlan
@@ -327,8 +344,26 @@ class SavorViewModel(
     fun markActivitiesAsRead() = repository.markActivitiesAsRead()
     fun markConversationAsRead(id: String) = repository.markConversationAsRead(id)
 
+    fun syncFirebaseUser(userId: String, email: String, displayName: String, avatarUrl: String) {
+        repository.syncFirebaseUser(userId, email, displayName, avatarUrl)
+        viewModelScope.launch {
+            try {
+                firestoreRepository?.saveUserProfile(repository.currentUser.value)
+            } catch (e: Exception) {
+                // local fallback maintained
+            }
+        }
+    }
+
     fun publishRecipe(recipe: Recipe) {
         repository.publishRecipe(recipe)
+        viewModelScope.launch {
+            try {
+                firestoreRepository?.createRecipe(recipe)
+            } catch (e: Exception) {
+                // local fallback maintained
+            }
+        }
         showToast("Your recipe '${recipe.title}' is now live on Savor!")
     }
 
@@ -338,4 +373,108 @@ class SavorViewModel(
     }
 
     fun deleteStory(storyId: String) = repository.deleteStory(storyId)
+
+    // --- Messaging ---
+    fun sendMessage(conversationId: String, text: String, recipeCard: Recipe? = null) {
+        val message = ChatMessage(
+            id = "msg_${java.util.UUID.randomUUID().toString().take(8)}",
+            conversationId = conversationId,
+            senderId = currentUser.value.id,
+            senderUsername = currentUser.value.username,
+            text = text,
+            recipeCard = recipeCard,
+            timestamp = System.currentTimeMillis()
+        )
+        repository.sendMessage(conversationId, message)
+    }
+
+    // --- Group Messaging ---
+    fun createGroupConversation(name: String, memberUsernames: List<String>): String {
+        val id = repository.createGroupConversation(name = name, description = "", memberUsernames = memberUsernames)
+        showToast("Group '$name' created!")
+        return id
+    }
+
+    fun sendGroupMessage(groupId: String, text: String, recipeCard: Recipe? = null) {
+        repository.sendGroupMessage(groupId, text, recipeCard)
+    }
+
+    // --- Multi-Language / Localization ---
+    fun setLanguage(language: AppLanguage) {
+        repository.setLanguage(language)
+        showToast("Language switched to ${language.displayName}")
+    }
+
+    // --- Live Streaming ---
+    fun startLiveStream(title: String, recipeTitle: String? = null, recipeId: String? = null): LiveStreamSession {
+        val session = repository.startLiveStream(title, recipeTitle, recipeId)
+        showToast("You are now LIVE! 🔴")
+        return session
+    }
+
+    fun joinLiveStream(sessionId: String) {
+        repository.joinLiveStream(sessionId)
+    }
+
+    fun leaveLiveStream() {
+        repository.leaveLiveStream()
+    }
+
+    fun sendLiveComment(text: String) {
+        repository.sendLiveComment(text)
+    }
+
+    fun sendLiveReaction() {
+        repository.sendLiveReaction()
+    }
+
+    // --- Moderation & Admin ---
+    fun reportRecipe(recipeId: String, reason: ReportReason, details: String) {
+        repository.reportRecipe(recipeId, reason, details)
+        showToast("Report submitted to Savor Trust & Safety team. Thank you!")
+    }
+
+    fun resolveModerationReport(reportId: String, action: ReportStatus) {
+        repository.resolveModerationReport(reportId, action)
+        val actionText = if (action == ReportStatus.RESOLVED_REMOVED) "Recipe removed and report resolved." else "Report dismissed."
+        showToast(actionText)
+    }
+
+    fun auditVerificationBadges() {
+        val results = repository.auditVerificationBadges()
+        showToast("Badge audit complete: ${results.size} accounts reviewed.")
+    }
+
+    fun manuallySetUserBadgeStatus(userId: String, status: BadgeStatus, reason: String) {
+        repository.manuallySetUserBadgeStatus(userId, status, reason)
+        showToast("Updated badge status to ${status.name}")
+    }
+
+    // --- Subscription Refunds ---
+    fun requestSubscriptionRefund(reason: RefundReason) {
+        val refund = repository.requestSubscriptionRefund(reason)
+        showToast("Refund of $9.99 processed. Confirmation: ${refund.confirmationCode}")
+    }
+
+    // --- Gift & Promo Codes ---
+    fun redeemPromoCode(code: String) {
+        val result = repository.redeemPromoCode(code)
+        result.onSuccess { message ->
+            showToast(message)
+        }.onFailure { error ->
+            showToast(error.message ?: "Failed to redeem code")
+        }
+    }
+
+    fun generateGiftCode(recipientUsername: String): String {
+        val code = repository.generateGiftCode(recipientUsername)
+        showToast("Gift code generated: $code")
+        return code
+    }
+
+    // --- SMS Notifications ---
+    fun updateSmsSettings(settings: SmsNotificationSettings) {
+        repository.updateSmsSettings(settings)
+        showToast("SMS notification settings saved.")
+    }
 }

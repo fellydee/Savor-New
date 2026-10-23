@@ -111,6 +111,42 @@ object AuthManager {
         }
     }
 
+    fun signInWithEmail(
+        email: String,
+        password: String,
+        onAuthSuccess: () -> Unit,
+        onAuthError: (String) -> Unit,
+        scope: CoroutineScope
+    ) {
+        scope.launch {
+            try {
+                FirebaseAuth.getInstance().signInWithEmailAndPassword(email.trim(), password).await()
+                onAuthSuccess()
+            } catch (e: Exception) {
+                Log.e("Auth", "Email Sign-In failed", e)
+                onAuthError(e.localizedMessage ?: "Failed to sign in. Please verify your credentials.")
+            }
+        }
+    }
+
+    fun signUpWithEmail(
+        email: String,
+        password: String,
+        onAuthSuccess: () -> Unit,
+        onAuthError: (String) -> Unit,
+        scope: CoroutineScope
+    ) {
+        scope.launch {
+            try {
+                FirebaseAuth.getInstance().createUserWithEmailAndPassword(email.trim(), password).await()
+                onAuthSuccess()
+            } catch (e: Exception) {
+                Log.e("Auth", "Email Sign-Up failed", e)
+                onAuthError(e.localizedMessage ?: "Failed to register. Password should be at least 6 characters.")
+            }
+        }
+    }
+
     fun signOut(
         context: Context,
         credentialManager: CredentialManager,

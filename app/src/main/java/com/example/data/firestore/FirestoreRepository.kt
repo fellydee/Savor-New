@@ -25,7 +25,6 @@ class FirestoreRepository(
     // Secondary constructor resolving named database ID from firebase_applet_config.xml
     constructor(context: Context) : this(
         FirebaseFirestore.getInstance(
-            FirebaseApp.getInstance(),
             context.applicationContext.getString(R.string.firestore_database_id)
         ),
         FirebaseAuth.getInstance()

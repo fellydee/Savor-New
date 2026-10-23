@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,15 +23,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.model.*
 import com.example.ui.Screen
 import com.example.ui.SavorViewModel
 import com.example.ui.components.DietaryTagChip
 import com.example.ui.theme.*
+import java.io.File
+import java.io.FileOutputStream
 import java.util.UUID
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -41,12 +50,69 @@ fun RecipeCreateScreen(
     var currentStep by remember { mutableStateOf(1) } // 1: Media, 2: Cover/Crop, 3: Details
 
     // Step 1 State: Media
+    val context = LocalContext.current
     var selectedMediaType by remember { mutableStateOf(MediaType.VIDEO) }
+    var uploadedMediaUri by remember { mutableStateOf<String?>(null) }
     var videoDurationInput by remember { mutableStateOf("45") } // simulated video length in seconds
     var mediaErrorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Step 2 State: Cover Frame
+    // Media pickers & camera capture launchers
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            uploadedMediaUri = uri.toString()
+            selectedMediaType = MediaType.VIDEO
+            mediaErrorMessage = null
+        }
+    }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            uploadedMediaUri = uri.toString()
+            selectedMediaType = MediaType.IMAGE
+            mediaErrorMessage = null
+        }
+    }
+
+    val cameraPhotoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            try {
+                val file = File(context.cacheDir, "recipe_cam_${System.currentTimeMillis()}.jpg")
+                FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                }
+                uploadedMediaUri = file.toURI().toString()
+                selectedMediaType = MediaType.IMAGE
+                mediaErrorMessage = null
+            } catch (e: Exception) {
+                mediaErrorMessage = "Could not process captured camera photo: ${e.message}"
+            }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            cameraPhotoLauncher.launch(null)
+        } else {
+            mediaErrorMessage = "Camera permission is required to capture photos directly."
+        }
+    }
+
+    // Step 2 State: Cover Frame & Video Studio
     var coverFramePosition by remember { mutableStateOf(0.5f) }
+    var selectedVideoFilter by remember { mutableStateOf<VideoFilter>(VideoFilter.ORIGINAL) }
+    var selectedVideoSpeed by remember { mutableStateOf(1.0f) }
+    var trimStartSeconds by remember { mutableStateOf(0f) }
+    var trimEndSeconds by remember { mutableStateOf(45f) }
+    var selectedTranscodingQuality by remember { mutableStateOf<VideoQuality>(VideoQuality.FHD_1080) }
+    var customAllowedUsersInput by remember { mutableStateOf("") }
 
     // Step 3 State: Recipe Details
     var title by remember { mutableStateOf("") }
@@ -126,11 +192,11 @@ fun RecipeCreateScreen(
                 ) {
                     Column(modifier = Modifier.padding(18.dp)) {
                         Text(
-                            text = "Step 1: Choose Media Type",
+                            text = "Step 1: Choose Media Type & Upload",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            text = "Upload high-res photos or short video reels up to 60 seconds.",
+                            text = "Upload photos and video reels directly from your gallery or capture live with your camera.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -181,7 +247,94 @@ fun RecipeCreateScreen(
                                 ) {
                                     Icon(imageVector = Icons.Default.PhotoLibrary, contentDescription = null, tint = SavorGoldenYellow)
                                     Spacer(modifier = Modifier.height(6.dp))
-                                    Text(text = "Photo Gallery", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                    Text(text = "Photo Reel", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Upload from Gallery or Camera Section
+                        Text(
+                            text = "Upload Directly from Device:",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedButton(
+                                onClick = {
+                                    if (selectedMediaType == MediaType.VIDEO) {
+                                        videoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+                                    } else {
+                                        photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f).testTag("recipe_pick_gallery_button")
+                            ) {
+                                Icon(imageVector = Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(if (selectedMediaType == MediaType.VIDEO) "Pick Video" else "Pick Photo", fontSize = 12.sp)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.weight(1f).testTag("recipe_camera_button")
+                            ) {
+                                Icon(imageVector = Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Camera", fontSize = 12.sp)
+                            }
+                        }
+
+                        if (uploadedMediaUri != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(10.dp)
+                                ) {
+                                    if (selectedMediaType == MediaType.IMAGE) {
+                                        AsyncImage(
+                                            model = uploadedMediaUri,
+                                            contentDescription = "Uploaded Media",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp))
+                                        )
+                                    } else {
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).background(SavorAccentOrange.copy(alpha = 0.2f))
+                                        ) {
+                                            Icon(imageVector = Icons.Default.MovieFilter, contentDescription = null, tint = SavorAccentOrange)
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = if (selectedMediaType == MediaType.VIDEO) "Video Attached" else "Photo Attached",
+                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                        Text(
+                                            text = "Ready for cover editing & publishing",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    IconButton(onClick = { uploadedMediaUri = null }) {
+                                        Icon(imageVector = Icons.Default.Close, contentDescription = "Clear", tint = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                         }
@@ -317,6 +470,144 @@ fun RecipeCreateScreen(
                             modifier = Modifier.testTag("cover_frame_slider")
                         )
 
+                        if (selectedMediaType == MediaType.VIDEO) {
+                            Spacer(modifier = Modifier.height(18.dp))
+                            HorizontalDivider()
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            Text(
+                                text = "In-App Video Studio",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "Apply studio culinary filters, adjust speed, trim clips, and set export transcoding.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // 1. Video Filters
+                            Text(
+                                text = "Culinary Filter: ${selectedVideoFilter.displayName}",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                VideoFilter.values().forEach { filter ->
+                                    val isSelected = selectedVideoFilter == filter
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { selectedVideoFilter = filter },
+                                        label = { Text(filter.displayName) },
+                                        leadingIcon = if (isSelected) {
+                                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                                        } else null
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // 2. Playback Speed / Effect
+                            Text(
+                                text = "Speed Effect: ${selectedVideoSpeed}x",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(0.5f to "0.5x Slow-Mo", 1.0f to "1.0x Normal", 2.0f to "2.0x Hyperlapse").forEach { (speed, label) ->
+                                    val isSelected = selectedVideoSpeed == speed
+                                    OutlinedButton(
+                                        onClick = { selectedVideoSpeed = speed },
+                                        colors = if (isSelected) ButtonDefaults.outlinedButtonColors(containerColor = SavorAccentOrange.copy(alpha = 0.15f)) else ButtonDefaults.outlinedButtonColors(),
+                                        border = if (isSelected) androidx.compose.foundation.BorderStroke(1.5.dp, SavorAccentOrange) else null,
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(label, style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal))
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // 3. Trimming Controls
+                            Text(
+                                text = "Clip Trim: ${trimStartSeconds.toInt()}s to ${trimEndSeconds.toInt()}s (${(trimEndSeconds - trimStartSeconds).toInt()}s total)",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Start", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp))
+                                Slider(
+                                    value = trimStartSeconds,
+                                    onValueChange = {
+                                        if (it < trimEndSeconds) trimStartSeconds = it
+                                    },
+                                    valueRange = 0f..30f,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("End", style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(36.dp))
+                                Slider(
+                                    value = trimEndSeconds,
+                                    onValueChange = {
+                                        if (it > trimStartSeconds) trimEndSeconds = it
+                                    },
+                                    valueRange = 10f..60f,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // 4. Automatic Video Transcoding & Quality Optimization
+                            Text(
+                                text = "Transcoding & Export Quality:",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            VideoQuality.values().forEach { quality ->
+                                val isSelected = selectedTranscodingQuality == quality
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) SavorAccentOrange.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                    border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, SavorAccentOrange) else null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 2.dp)
+                                        .clickable { selectedTranscodingQuality = quality }
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(10.dp)
+                                    ) {
+                                        RadioButton(
+                                            selected = isSelected,
+                                            onClick = { selectedTranscodingQuality = quality },
+                                            colors = RadioButtonDefaults.colors(selectedColor = SavorAccentOrange)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Column {
+                                            Text(text = quality.label, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                                            Text(text = "${quality.resolution} • ${quality.bandwidthSaved}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(20.dp))
 
                         Row(
@@ -450,6 +741,18 @@ fun RecipeCreateScreen(
                                     }
                                 }
                             }
+                        }
+
+                        if (selectedPrivacy == PrivacyLevel.CUSTOM_LIST) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = customAllowedUsersInput,
+                                onValueChange = { customAllowedUsersInput = it },
+                                label = { Text("Allowed Usernames (comma-separated)") },
+                                placeholder = { Text("e.g. chef_marco, jessicabakes, jin_kitchen") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -667,12 +970,27 @@ fun RecipeCreateScreen(
                                         cookTimeMinutes = cookTime.toIntOrNull() ?: 25,
                                         servings = servings.toIntOrNull() ?: 2,
                                         mediaType = selectedMediaType,
+                                        mediaUrl = uploadedMediaUri ?: "",
+                                        thumbnailCoverUrl = uploadedMediaUri ?: "",
                                         videoDurationSeconds = if (selectedMediaType == MediaType.VIDEO) videoDurationInput.toIntOrNull() ?: 45 else 0,
                                         foodArtGradientId = (1..6).random(),
                                         ingredients = ingredients.toList(),
                                         steps = steps.toList(),
                                         tags = selectedTags.toList(),
                                         privacyLevel = selectedPrivacy,
+                                        customAllowedUsernames = if (selectedPrivacy == PrivacyLevel.CUSTOM_LIST) {
+                                            customAllowedUsersInput.split(",").map { it.trim().removePrefix("@") }.filter { it.isNotBlank() }
+                                        } else emptyList(),
+                                        videoFilterApplied = if (selectedMediaType == MediaType.VIDEO) selectedVideoFilter else VideoFilter.ORIGINAL,
+                                        videoTranscodingQuality = if (selectedMediaType == MediaType.VIDEO) selectedTranscodingQuality else VideoQuality.FHD_1080,
+                                        videoAnalytics = if (selectedMediaType == MediaType.VIDEO) {
+                                            VideoAnalytics(
+                                                totalViews = 1,
+                                                avgWatchSeconds = (videoDurationInput.toIntOrNull() ?: 45) * 0.72f,
+                                                completionRatePercent = 82f,
+                                                retentionCurve = listOf(100f, 94f, 86f, 78f, 68f)
+                                            )
+                                        } else null,
                                         nutrition = if (currentUser.isPremium) {
                                             NutritionInfo(
                                                 calories = calories.toIntOrNull() ?: 400,

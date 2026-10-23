@@ -9,22 +9,22 @@ import java.util.UUID
 
 class SavorRepository {
 
-    // Current Authenticated User
+    // Current Authenticated User (Initialized Clean)
     private val _currentUser = MutableStateFlow(
         User(
             id = "user_me",
-            username = "chef_elena",
-            displayName = "Elena Rostova",
-            email = "elena@savor.app",
+            username = "new_foodie",
+            displayName = "New Foodie",
+            email = "",
             city = "Austin, TX",
-            avatarUrl = "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150",
-            bio = "Culinary explorer & food storyteller in Austin 🌶️ Artisan tacos & sourdough enthusiast.",
-            followersCount = 3850,
-            followingCount = 42,
+            avatarUrl = "",
+            bio = "",
+            followersCount = 0,
+            followingCount = 0,
             isPremium = false,
             isVerified = false,
-            totalLikesReceived = 1420, // 5 Chef Flowers
-            personalAllergens = listOf(Allergen.DAIRY, Allergen.PEANUTS)
+            totalLikesReceived = 0,
+            personalAllergens = emptyList()
         )
     )
     val currentUser: StateFlow<User> = _currentUser.asStateFlow()
@@ -97,6 +97,43 @@ class SavorRepository {
         )
     )
     val pushSettings: StateFlow<Map<ActivityType, Boolean>> = _pushSettings.asStateFlow()
+
+    // Group Messaging
+    private val _groupConversations = MutableStateFlow<List<GroupConversation>>(emptyList())
+    val groupConversations: StateFlow<List<GroupConversation>> = _groupConversations.asStateFlow()
+
+    private val _groupMessages = MutableStateFlow<Map<String, List<ChatMessage>>>(emptyMap())
+    val groupMessages: StateFlow<Map<String, List<ChatMessage>>> = _groupMessages.asStateFlow()
+
+    // Multi-Language / Localization
+    private val _appLanguage = MutableStateFlow(AppLanguage.ENGLISH)
+    val appLanguage: StateFlow<AppLanguage> = _appLanguage.asStateFlow()
+
+    // Live Streaming
+    private val _liveStreams = MutableStateFlow<List<LiveStreamSession>>(emptyList())
+    val liveStreams: StateFlow<List<LiveStreamSession>> = _liveStreams.asStateFlow()
+
+    private val _activeLiveSession = MutableStateFlow<LiveStreamSession?>(null)
+    val activeLiveSession: StateFlow<LiveStreamSession?> = _activeLiveSession.asStateFlow()
+
+    // Admin / Moderation Dashboard
+    private val _moderationReports = MutableStateFlow<List<ModerationReport>>(emptyList())
+    val moderationReports: StateFlow<List<ModerationReport>> = _moderationReports.asStateFlow()
+
+    // Verification Badge Audits
+    private val _verificationAudits = MutableStateFlow<List<VerificationAuditLog>>(emptyList())
+    val verificationAudits: StateFlow<List<VerificationAuditLog>> = _verificationAudits.asStateFlow()
+
+    // Subscriptions, Refunds & Promo Codes
+    private val _refundHistory = MutableStateFlow<List<SubscriptionRefund>>(emptyList())
+    val refundHistory: StateFlow<List<SubscriptionRefund>> = _refundHistory.asStateFlow()
+
+    private val _promoCodes = MutableStateFlow<List<PromoCodeItem>>(emptyList())
+    val promoCodes: StateFlow<List<PromoCodeItem>> = _promoCodes.asStateFlow()
+
+    // SMS Notifications
+    private val _smsSettings = MutableStateFlow(SmsNotificationSettings())
+    val smsSettings: StateFlow<SmsNotificationSettings> = _smsSettings.asStateFlow()
 
     init {
         seedInitialData()
@@ -186,64 +223,8 @@ class SavorRepository {
 
         _users.value = listOf(userMarco, userJin, userClara, userTaco, userGreen)
 
-        // Seed Nutritional Database / Custom Ingredients
-        _customIngredients.value = listOf(
-            CustomIngredientItem(
-                id = "ing_1",
-                name = "Wild Alaskan Sockeye Salmon",
-                category = "Seafood",
-                caloriesPer100g = 216,
-                proteinPer100g = 27,
-                carbsPer100g = 0,
-                fatPer100g = 11,
-                allergens = listOf(Allergen.FISH),
-                defaultServing = "170g fillet"
-            ),
-            CustomIngredientItem(
-                id = "ing_2",
-                name = "Grass-Fed European Butter",
-                category = "Dairy",
-                caloriesPer100g = 717,
-                proteinPer100g = 1,
-                carbsPer100g = 1,
-                fatPer100g = 81,
-                allergens = listOf(Allergen.DAIRY),
-                defaultServing = "14g (1 tbsp)"
-            ),
-            CustomIngredientItem(
-                id = "ing_3",
-                name = "Ceremonial Uji Matcha",
-                category = "Pantry",
-                caloriesPer100g = 324,
-                proteinPer100g = 30,
-                carbsPer100g = 39,
-                fatPer100g = 5,
-                allergens = emptyList(),
-                defaultServing = "2g (1 tsp)"
-            ),
-            CustomIngredientItem(
-                id = "ing_4",
-                name = "Greek Sheep & Goat Feta",
-                category = "Dairy",
-                caloriesPer100g = 264,
-                proteinPer100g = 14,
-                carbsPer100g = 4,
-                fatPer100g = 21,
-                allergens = listOf(Allergen.DAIRY),
-                defaultServing = "30g"
-            ),
-            CustomIngredientItem(
-                id = "ing_5",
-                name = "Organic Black Winter Truffle Butter",
-                category = "Gourmet",
-                caloriesPer100g = 720,
-                proteinPer100g = 1,
-                carbsPer100g = 2,
-                fatPer100g = 80,
-                allergens = listOf(Allergen.DAIRY),
-                defaultServing = "15g"
-            )
-        )
+        // Clean Custom Ingredients Database initially (user starts clean)
+        _customIngredients.value = emptyList()
 
         // Seed Recipes with Versions, Co-Authors, Allergens, Difficulty, Timers, and Partners
         val recipe1 = Recipe(
@@ -264,12 +245,10 @@ class SavorRepository {
             skillTags = listOf(SkillTag.SEARING, SkillTag.EMULSION),
             allergens = listOf(Allergen.FISH, Allergen.DAIRY),
             coAuthors = listOf(
-                CoAuthor(userMarco.id, userMarco.username, userMarco.displayName, userMarco.avatarUrl, true),
-                CoAuthor(_currentUser.value.id, _currentUser.value.username, _currentUser.value.displayName, _currentUser.value.avatarUrl, false)
+                CoAuthor(userMarco.id, userMarco.username, userMarco.displayName, userMarco.avatarUrl, true)
             ),
             versions = listOf(
-                RecipeVersion("v1.0", System.currentTimeMillis() - 7 * 86400000L, "marco_roma", "Initial Roman coastal recipe", "Salmon, Cream, Garlic, Spinach", 22),
-                RecipeVersion("v1.1", System.currentTimeMillis() - 2 * 86400000L, "chef_elena", "Adjusted sun-dried tomato acidity and added chili flake finish", "Salmon, Cream, Garlic, Spinach, Sun-dried tomatoes, Chili", 20)
+                RecipeVersion("v1.0", System.currentTimeMillis() - 7 * 86400000L, "marco_roma", "Initial Roman coastal recipe", "Salmon, Cream, Garlic, Spinach", 22)
             ),
             ratingAverage = 4.9f,
             ratingCount = 42,
@@ -307,17 +286,17 @@ class SavorRepository {
             commentsCount = 36,
             shareCount = 18,
             nutrition = NutritionInfo(calories = 490, protein = 38, carbs = 9, fat = 34),
-            isLikedByMe = true,
-            isSavedByMe = true
+            isLikedByMe = false,
+            isSavedByMe = false
         )
 
         val recipe2 = Recipe(
             id = "recipe_matcha_donut",
-            authorId = _currentUser.value.id,
-            authorUsername = _currentUser.value.username,
-            authorAvatarUrl = _currentUser.value.avatarUrl,
-            isAuthorVerified = false,
-            isAuthorPremium = false,
+            authorId = userClara.id,
+            authorUsername = userClara.username,
+            authorAvatarUrl = userClara.avatarUrl,
+            isAuthorVerified = true,
+            isAuthorPremium = true,
             title = "Matcha Glazed Brioche Donuts",
             description = "Pillow-soft brioche donuts crowned with an emerald Uji matcha glaze and edible gold flakes.",
             cookTimeMinutes = 45,
@@ -327,12 +306,9 @@ class SavorRepository {
             difficulty = DifficultyLevel.ADVANCED,
             skillTags = listOf(SkillTag.BAKING, SkillTag.EMULSION),
             allergens = listOf(Allergen.GLUTEN, Allergen.DAIRY, Allergen.EGGS),
-            coAuthors = listOf(
-                CoAuthor(userClara.id, userClara.username, userClara.displayName, userClara.avatarUrl, true)
-            ),
+            coAuthors = emptyList(),
             versions = listOf(
-                RecipeVersion("v1.0", System.currentTimeMillis() - 10 * 86400000L, "clara_pastry", "Parisian brioche base", "Bread flour, Butter, Eggs, Milk", 50),
-                RecipeVersion("v2.0", System.currentTimeMillis() - 3 * 86400000L, "chef_elena", "Infused with ceremonial Kyoto matcha glaze", "Bread flour, Butter, Eggs, Milk, Uji Matcha", 45)
+                RecipeVersion("v1.0", System.currentTimeMillis() - 10 * 86400000L, "clara_pastry", "Parisian brioche base", "Bread flour, Butter, Eggs, Milk", 50)
             ),
             ratingAverage = 4.8f,
             ratingCount = 28,
@@ -360,7 +336,9 @@ class SavorRepository {
             likesCount = 312,
             commentsCount = 24,
             shareCount = 45,
-            nutrition = NutritionInfo(calories = 310, protein = 6, carbs = 42, fat = 14)
+            nutrition = NutritionInfo(calories = 310, protein = 6, carbs = 42, fat = 14),
+            isLikedByMe = false,
+            isSavedByMe = false
         )
 
         val recipe3 = Recipe(
@@ -418,7 +396,7 @@ class SavorRepository {
             commentsCount = 52,
             shareCount = 84,
             nutrition = NutritionInfo(calories = 420, protein = 29, carbs = 18, fat = 26),
-            isLikedByMe = true
+            isLikedByMe = false
         )
 
         val recipe4 = Recipe(
@@ -551,8 +529,8 @@ class SavorRepository {
                 id = "col_1",
                 title = "20-Minute Weeknight Wonders",
                 description = "Rapid, restaurant-quality dishes designed for effortless after-work gourmet dinners.",
-                creatorId = _currentUser.value.id,
-                creatorUsername = _currentUser.value.username,
+                creatorId = userMarco.id,
+                creatorUsername = userMarco.username,
                 coverGradientId = 1,
                 recipeIds = listOf(recipe1.id, recipe4.id, recipe5.id),
                 followersCount = 420
@@ -609,10 +587,10 @@ class SavorRepository {
                 RecipeReview(
                     id = "rev_3",
                     recipeId = recipe3.id,
-                    authorId = _currentUser.value.id,
-                    authorUsername = _currentUser.value.username,
-                    authorAvatarUrl = _currentUser.value.avatarUrl,
-                    isAuthorVerified = false,
+                    authorId = userClara.id,
+                    authorUsername = userClara.username,
+                    authorAvatarUrl = userClara.avatarUrl,
+                    isAuthorVerified = true,
                     rating = 5,
                     comment = "Cooked this with the interactive step timer on Saturday. The post oak aroma is legendary.",
                     helpfulCount = 15
@@ -661,67 +639,8 @@ class SavorRepository {
 
         _stories.value = listOf(story1, story2, story3)
 
-        // Seed Initial Activity Notifications
-        _activities.value = listOf(
-            ActivityItem(
-                id = "act_collab_1",
-                type = ActivityType.COLLABORATION,
-                actorUsername = userMarco.username,
-                actorAvatarUrl = userMarco.avatarUrl,
-                isActorVerified = true,
-                recipeId = recipe1.id,
-                recipeTitle = recipe1.title,
-                message = "invited you as a Co-Author on 'Tuscan Sun-Dried Tomato Salmon Reel'",
-                timestamp = now - 10 * 60 * 1000L,
-                isRead = false
-            ),
-            ActivityItem(
-                id = "act_rev_1",
-                type = ActivityType.REVIEW,
-                actorUsername = userJin.username,
-                actorAvatarUrl = userJin.avatarUrl,
-                isActorVerified = true,
-                recipeId = recipe1.id,
-                recipeTitle = recipe1.title,
-                message = "left a 5-star review on your co-authored recipe",
-                timestamp = now - 25 * 60 * 1000L,
-                isRead = false
-            ),
-            ActivityItem(
-                id = "act_share_1",
-                type = ActivityType.SHARE,
-                actorUsername = userTaco.username,
-                actorAvatarUrl = userTaco.avatarUrl,
-                isActorVerified = userTaco.isVerified,
-                recipeId = recipe2.id,
-                recipeTitle = recipe2.title,
-                message = "reshared your recipe post to their story",
-                timestamp = now - 45 * 60 * 1000L,
-                isRead = false,
-                originalPosterUsername = userClara.username
-            ),
-            ActivityItem(
-                id = "act_flower_1",
-                type = ActivityType.CHEF_FLOWER_MILESTONE,
-                actorUsername = "Savor Kitchen",
-                isActorVerified = true,
-                message = "Congratulations! You earned your 5th Chef Flower from 1,250 likes!",
-                timestamp = now - 2 * 3600 * 1000L,
-                isRead = false
-            ),
-            ActivityItem(
-                id = "act_like_1",
-                type = ActivityType.LIKE,
-                actorUsername = userMarco.username,
-                actorAvatarUrl = userMarco.avatarUrl,
-                isActorVerified = userMarco.isVerified,
-                recipeId = recipe2.id,
-                recipeTitle = recipe2.title,
-                message = "liked your recipe Matcha Glazed Brioche Donuts",
-                timestamp = now - 3 * 3600 * 1000L,
-                isRead = true
-            )
-        )
+        // Initial Activity Notifications (clean for new profile)
+        _activities.value = emptyList()
 
         // Seed Direct Messages & Conversations
         val convoMarco = Conversation(
@@ -805,33 +724,21 @@ class SavorRepository {
                 Comment(
                     id = "c2",
                     recipeId = recipe1.id,
-                    authorId = _currentUser.value.id,
-                    authorUsername = _currentUser.value.username,
-                    authorAvatarUrl = _currentUser.value.avatarUrl,
-                    isAuthorVerified = false,
+                    authorId = userClara.id,
+                    authorUsername = userClara.username,
+                    authorAvatarUrl = userClara.avatarUrl,
+                    isAuthorVerified = true,
                     text = "Making this for dinner tonight! Adding it straight to my shopping list.",
                     timestamp = now - 1 * 3600 * 1000L
                 )
             )
         )
 
-        // Seed Shopping List with estimated prices
-        _shoppingList.value = listOf(
-            ShoppingItem("shop_1", "Wild Salmon Fillets", "2", "fillets", false, recipe1.title, 12.99),
-            ShoppingItem("shop_2", "Baby Spinach", "2", "cups", true, recipe1.title, 2.49),
-            ShoppingItem("shop_3", "Avocados", "4", "medium", false, recipe3.title, 4.00),
-            ShoppingItem("shop_4", "Uji Ceremonial Matcha", "1", "tin", false, recipe2.title, 18.50),
-            ShoppingItem("shop_5", "Organic Coconut Milk", "2", "cans", true, recipe4.title, 3.98)
-        )
+        // Shopping List (starts clean for new user)
+        _shoppingList.value = emptyList()
 
-        // Seed Weekly Meal Plan
-        _mealPlan.value = listOf(
-            MealPlanEntry("mp_1", 0, MealSlot.DINNER, recipe1),
-            MealPlanEntry("mp_2", 1, MealSlot.LUNCH, recipe4),
-            MealPlanEntry("mp_3", 2, MealSlot.DINNER, recipe3),
-            MealPlanEntry("mp_4", 3, MealSlot.SNACK, recipe2),
-            MealPlanEntry("mp_5", 4, MealSlot.DINNER, recipe5)
-        )
+        // Weekly Meal Plan (starts clean for new user)
+        _mealPlan.value = emptyList()
 
         // Seed Meal Plan Templates
         _templates.value = listOf(
@@ -857,6 +764,154 @@ class SavorRepository {
                 )
             )
         )
+
+        // Seed Sample Group Conversations
+        val group1 = GroupConversation(
+            id = "group_bakers",
+            name = "Sourdough & Artisan Ferment Club",
+            description = "Daily crumb checks, wild yeast starters & Dutch oven scorings.",
+            iconEmoji = "🥖",
+            memberUserIds = listOf("user_me", "user_marco", "user_clara"),
+            memberUsernames = listOf("chef_elena", "marco_roma", "clara_french"),
+            lastMessage = "Marco: Sourdough hydration at 78% gives the crispest ear blister!",
+            lastTimestamp = System.currentTimeMillis() - 15 * 60 * 1000L,
+            unreadCount = 2
+        )
+        val group2 = GroupConversation(
+            id = "group_atx",
+            name = "Austin Supper Club & Chefs",
+            description = "Pop-up dinners, local farm market collabs & BBQ post oak smokes.",
+            iconEmoji = "🌶️",
+            memberUserIds = listOf("user_me", "user_marco", "user_jin", "user_clara"),
+            memberUsernames = listOf("chef_elena", "marco_roma", "sushi_jin", "clara_french"),
+            lastMessage = "Jin: Sourcing fresh Texas gulf redfish tomorrow morning at 6 AM.",
+            lastTimestamp = System.currentTimeMillis() - 2 * 3600 * 1000L,
+            unreadCount = 0
+        )
+        _groupConversations.value = listOf(group1, group2)
+
+        _groupMessages.value = mapOf(
+            "group_bakers" to listOf(
+                ChatMessage(
+                    id = "gmsg_1",
+                    conversationId = "group_bakers",
+                    senderId = "user_clara",
+                    senderUsername = "clara_french",
+                    text = "Bonjour! Are you all cold proofing for 14 or 18 hours?",
+                    timestamp = System.currentTimeMillis() - 3600 * 1000L
+                ),
+                ChatMessage(
+                    id = "gmsg_2",
+                    conversationId = "group_bakers",
+                    senderId = "user_marco",
+                    senderUsername = "marco_roma",
+                    text = "Marco: Sourdough hydration at 78% gives the crispest ear blister!",
+                    recipeCard = recipe3,
+                    timestamp = System.currentTimeMillis() - 15 * 60 * 1000L
+                )
+            ),
+            "group_atx" to listOf(
+                ChatMessage(
+                    id = "gmsg_3",
+                    conversationId = "group_atx",
+                    senderId = "user_jin",
+                    senderUsername = "sushi_jin",
+                    text = "Jin: Sourcing fresh Texas gulf redfish tomorrow morning at 6 AM.",
+                    timestamp = System.currentTimeMillis() - 2 * 3600 * 1000L
+                )
+            )
+        )
+
+        // Seed Sample Live Stream Sessions
+        val live1 = LiveStreamSession(
+            id = "live_jin_sushi",
+            hostId = "user_jin",
+            hostUsername = "sushi_jin",
+            hostDisplayName = "Chef Jin Tanaka",
+            hostAvatarUrl = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
+            isHostVerified = true,
+            title = "🔴 LIVE: Edomae Nigiri Shaping & Hamachi Slicing Masterclass",
+            recipeTitle = "Wild Salmon Fillets with Garlic Herb Butter",
+            recipeId = recipe1.id,
+            viewersCount = 1420,
+            isLive = true,
+            likesCount = 3840,
+            chatComments = listOf(
+                LiveChatMessage("lc_1", "chef_elena", "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150", "That 45-degree angle slice is sublime chef! 👏"),
+                LiveChatMessage("lc_2", "marco_roma", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150", "The knife control is unreal 🔥"),
+                LiveChatMessage("lc_3", "sushi_jin", "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150", "Thank you foodies! Remember: gentle pressure with fingertips.", isHost = true)
+            )
+        )
+        val live2 = LiveStreamSession(
+            id = "live_marco_pasta",
+            hostId = "user_marco",
+            hostUsername = "marco_roma",
+            hostDisplayName = "Marco Silvestri",
+            hostAvatarUrl = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
+            isHostVerified = true,
+            title = "🔴 LIVE: Rolling Tagliatelle with Post Oak Smoked Butter",
+            recipeTitle = "Smoked Texas Post-Oak Beef Brisket",
+            recipeId = recipe3.id,
+            viewersCount = 890,
+            isLive = true,
+            likesCount = 2100,
+            chatComments = listOf(
+                LiveChatMessage("lc_4", "clara_french", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150", "Smells amazing even through the screen! 🧈")
+            )
+        )
+        _liveStreams.value = listOf(live1, live2)
+
+        // Seed Sample Moderation Reports
+        _moderationReports.value = listOf(
+            ModerationReport(
+                id = "rep_101",
+                reportedRecipeId = recipe3.id,
+                reportedRecipeTitle = recipe3.title,
+                reportedAuthorUsername = "guest_chef_88",
+                reporterUsername = "clara_french",
+                reason = ReportReason.ALLERGEN_MISLABEL,
+                details = "Recipe lists peanut oil in steps but allergens tag only shows Dairy.",
+                status = ReportStatus.PENDING,
+                timestamp = System.currentTimeMillis() - 4 * 3600 * 1000L
+            ),
+            ModerationReport(
+                id = "rep_102",
+                reportedRecipeId = recipe6.id,
+                reportedRecipeTitle = recipe6.title,
+                reportedAuthorUsername = "spammer_knife",
+                reporterUsername = "marco_roma",
+                reason = ReportReason.SPAM_ADVERTISING,
+                details = "Links out to third-party commercial knife sharpening website in description.",
+                status = ReportStatus.PENDING,
+                timestamp = System.currentTimeMillis() - 24 * 3600 * 1000L
+            )
+        )
+
+        // Seed Promo Codes
+        _promoCodes.value = listOf(
+            PromoCodeItem("CHEF2026", "1 Month Free Savor Pro Chef Pass", "1 month free"),
+            PromoCodeItem("SAVORPRO", "3 Months Complimentary Savor Pro Membership", "3 months free"),
+            PromoCodeItem("GOURMET50", "50% Off Annual Savor Pro Chef Subscription", "Annual discount")
+        )
+
+        // Attach sample Video Analytics to recipes
+        _recipes.update { list ->
+            list.mapIndexed { idx, r ->
+                if (r.mediaType == MediaType.VIDEO) {
+                    r.copy(
+                        videoAnalytics = VideoAnalytics(
+                            totalViews = 3400 + idx * 850,
+                            avgWatchSeconds = (r.videoDurationSeconds * 0.72f).coerceAtLeast(18f),
+                            totalDurationSeconds = r.videoDurationSeconds,
+                            completionRatePercent = 78.4f - (idx * 2f),
+                            rewatchCount = 420 + idx * 60,
+                            peakEngagementTimestamp = "0:18 (Sear & Butter Baste)",
+                            retentionCurve = listOf(100f, 95f, 89f, 84f, 80f, 76f, 72f)
+                        )
+                    )
+                } else r
+            }
+        }
     }
 
     // --- Reviews & Ratings ---
@@ -1044,6 +1099,23 @@ class SavorRepository {
 
     // --- User & Auth Operations ---
 
+    fun syncFirebaseUser(userId: String, email: String, displayName: String, avatarUrl: String) {
+        val cleanUsername = if (displayName.isNotBlank()) {
+            displayName.lowercase().replace(" ", "_").filter { it.isLetterOrDigit() || it == '_' }
+        } else {
+            email.substringBefore("@").lowercase().replace(".", "_")
+        }
+        val current = _currentUser.value
+        val updated = current.copy(
+            id = userId,
+            displayName = displayName.ifBlank { "Chef" },
+            username = cleanUsername.ifBlank { "chef" },
+            email = email,
+            avatarUrl = avatarUrl.ifBlank { current.avatarUrl }
+        )
+        _currentUser.value = updated
+    }
+
     fun login(email: String) {
         val user = _users.value.find { it.email.equals(email, ignoreCase = true) }
         if (user != null) {
@@ -1069,9 +1141,15 @@ class SavorRepository {
         _users.update { it + newUser }
     }
 
-    fun updateProfile(displayName: String, bio: String, city: String) {
+    fun updateProfile(displayName: String, bio: String, city: String, avatarUrl: String? = null, username: String? = null) {
         _currentUser.update {
-            it.copy(displayName = displayName, bio = bio, city = city)
+            it.copy(
+                displayName = displayName.ifBlank { it.displayName },
+                bio = bio,
+                city = city.ifBlank { it.city },
+                avatarUrl = if (avatarUrl != null) avatarUrl else it.avatarUrl,
+                username = if (!username.isNullOrBlank()) username.lowercase().replace(" ", "_") else it.username
+            )
         }
     }
 
@@ -1497,15 +1575,278 @@ class SavorRepository {
 
     fun canUserViewRecipe(recipe: Recipe): Boolean {
         val user = _currentUser.value
+        if (recipe.authorId == user.id) return true
         return when (recipe.privacyLevel) {
             PrivacyLevel.PUBLIC -> true
             PrivacyLevel.FOLLOWERS_ONLY -> {
-                recipe.authorId == user.id || _users.value.find { it.id == recipe.authorId }?.isFollowing == true
+                _users.value.find { it.id == recipe.authorId }?.isFollowing == true
+            }
+            PrivacyLevel.FRIENDS_ONLY -> {
+                val author = _users.value.find { it.id == recipe.authorId }
+                author != null && author.isFollowing
+            }
+            PrivacyLevel.CUSTOM_LIST -> {
+                recipe.customAllowedUsernames.any { it.equals(user.username, ignoreCase = true) }
             }
             PrivacyLevel.PREMIUM_ONLY -> {
-                user.isPremium || recipe.authorId == user.id
+                user.isPremium
             }
         }
+    }
+
+    // --- Group Messaging ---
+    fun createGroupConversation(name: String, description: String = "", memberUsernames: List<String>): String {
+        val groupId = "group_${UUID.randomUUID().toString().take(8)}"
+        val members = listOf(_currentUser.value.username) + memberUsernames.filter { it.isNotBlank() }
+        val memberIds = listOf(_currentUser.value.id) + memberUsernames.mapNotNull { un -> _users.value.find { it.username.equals(un, ignoreCase = true) }?.id }
+
+        val newGroup = GroupConversation(
+            id = groupId,
+            name = name.ifBlank { "Culinary Foodie Group" },
+            description = description,
+            memberUserIds = memberIds,
+            memberUsernames = members,
+            lastMessage = "Group created by ${_currentUser.value.displayName}",
+            lastTimestamp = System.currentTimeMillis()
+        )
+        _groupConversations.update { listOf(newGroup) + it }
+        _groupMessages.update {
+            it + (groupId to listOf(
+                ChatMessage(
+                    id = "msg_${UUID.randomUUID().toString().take(8)}",
+                    conversationId = groupId,
+                    senderId = _currentUser.value.id,
+                    senderUsername = _currentUser.value.username,
+                    text = "Welcome to $name! Let's share recipes and cook together! 🍳",
+                    timestamp = System.currentTimeMillis()
+                )
+            ))
+        }
+        return groupId
+    }
+
+    fun sendGroupMessage(groupId: String, text: String, recipeCard: Recipe? = null) {
+        val message = ChatMessage(
+            id = "gmsg_${UUID.randomUUID().toString().take(8)}",
+            conversationId = groupId,
+            senderId = _currentUser.value.id,
+            senderUsername = _currentUser.value.username,
+            text = text,
+            recipeCard = recipeCard,
+            timestamp = System.currentTimeMillis()
+        )
+        _groupMessages.update { map ->
+            val list = map[groupId] ?: emptyList()
+            map + (groupId to (list + message))
+        }
+        _groupConversations.update { list ->
+            list.map {
+                if (it.id == groupId) it.copy(lastMessage = "${_currentUser.value.username}: $text", lastTimestamp = System.currentTimeMillis()) else it
+            }
+        }
+    }
+
+    // --- Multi-Language / Localization ---
+    fun setLanguage(language: AppLanguage) {
+        _appLanguage.value = language
+    }
+
+    // --- Live Streaming ---
+    fun startLiveStream(title: String, recipeTitle: String? = null, recipeId: String? = null): LiveStreamSession {
+        val session = LiveStreamSession(
+            id = "live_${UUID.randomUUID().toString().take(8)}",
+            hostId = _currentUser.value.id,
+            hostUsername = _currentUser.value.username,
+            hostDisplayName = _currentUser.value.displayName,
+            hostAvatarUrl = _currentUser.value.avatarUrl,
+            isHostVerified = _currentUser.value.hasVerificationBadge,
+            title = title.ifBlank { "🔴 LIVE: Kitchen Masterclass with ${_currentUser.value.displayName}" },
+            recipeTitle = recipeTitle,
+            recipeId = recipeId,
+            viewersCount = 1,
+            isLive = true,
+            chatComments = listOf(
+                LiveChatMessage(
+                    id = "lc_welcome",
+                    senderUsername = _currentUser.value.username,
+                    senderAvatarUrl = _currentUser.value.avatarUrl,
+                    text = "Welcome to the live stream! Ask me anything about this recipe.",
+                    isHost = true
+                )
+            )
+        )
+        _liveStreams.update { listOf(session) + it }
+        _activeLiveSession.value = session
+        return session
+    }
+
+    fun joinLiveStream(sessionId: String) {
+        val found = _liveStreams.value.find { it.id == sessionId }
+        if (found != null) {
+            _activeLiveSession.value = found
+            _liveStreams.update { list ->
+                list.map { if (it.id == sessionId) it.copy(viewersCount = it.viewersCount + 1) else it }
+            }
+        }
+    }
+
+    fun leaveLiveStream() {
+        _activeLiveSession.value = null
+    }
+
+    fun sendLiveComment(text: String) {
+        val active = _activeLiveSession.value ?: return
+        val newComment = LiveChatMessage(
+            id = "lc_${UUID.randomUUID().toString().take(8)}",
+            senderUsername = _currentUser.value.username,
+            senderAvatarUrl = _currentUser.value.avatarUrl,
+            text = text.trim(),
+            timestamp = System.currentTimeMillis(),
+            isHost = active.hostId == _currentUser.value.id
+        )
+        val updatedComments = active.chatComments + newComment
+        val updated = active.copy(chatComments = updatedComments)
+        _activeLiveSession.value = updated
+        _liveStreams.update { list ->
+            list.map { if (it.id == active.id) updated else it }
+        }
+    }
+
+    fun sendLiveReaction() {
+        val active = _activeLiveSession.value ?: return
+        val updated = active.copy(likesCount = active.likesCount + 1)
+        _activeLiveSession.value = updated
+        _liveStreams.update { list ->
+            list.map { if (it.id == active.id) updated else it }
+        }
+    }
+
+    // --- Admin & Moderation ---
+    fun reportRecipe(recipeId: String, reason: ReportReason, details: String) {
+        val recipe = _recipes.value.find { it.id == recipeId } ?: return
+        val report = ModerationReport(
+            id = "rep_${UUID.randomUUID().toString().take(8)}",
+            reportedRecipeId = recipeId,
+            reportedRecipeTitle = recipe.title,
+            reportedAuthorUsername = recipe.authorUsername,
+            reporterUsername = _currentUser.value.username,
+            reason = reason,
+            details = details.ifBlank { "Reported by community member." },
+            status = ReportStatus.PENDING,
+            timestamp = System.currentTimeMillis()
+        )
+        _moderationReports.update { listOf(report) + it }
+    }
+
+    fun resolveModerationReport(reportId: String, action: ReportStatus) {
+        val report = _moderationReports.value.find { it.id == reportId }
+        _moderationReports.update { list ->
+            list.map { if (it.id == reportId) it.copy(status = action) else it }
+        }
+        if (report != null && action == ReportStatus.RESOLVED_REMOVED) {
+            _recipes.update { list -> list.filterNot { it.id == report.reportedRecipeId } }
+        }
+    }
+
+    // --- Verification Badge Revocation & Audit ---
+    fun auditVerificationBadges(): List<VerificationAuditLog> {
+        val audits = mutableListOf<VerificationAuditLog>()
+        val allUsers = listOf(_currentUser.value) + _users.value
+
+        allUsers.forEach { user ->
+            val meetsCriteria = user.isPremium || user.followersCount >= 10000 || user.isVerified
+            val log = if (!meetsCriteria && user.badgeStatus == BadgeStatus.ACTIVE) {
+                VerificationAuditLog(
+                    userId = user.id,
+                    username = user.username,
+                    status = BadgeStatus.REVOKED,
+                    followersCount = user.followersCount,
+                    isPremium = user.isPremium,
+                    reason = "Followers (${user.followersCount}) below 10,000 threshold and no active Savor Pro subscription."
+                )
+            } else {
+                VerificationAuditLog(
+                    userId = user.id,
+                    username = user.username,
+                    status = if (meetsCriteria) BadgeStatus.ACTIVE else user.badgeStatus,
+                    followersCount = user.followersCount,
+                    isPremium = user.isPremium,
+                    reason = if (user.isPremium) "Active Savor Pro Chef subscription." else if (user.followersCount >= 10000) "Follower threshold verified (10k+)." else "Editorial chef verification."
+                )
+            }
+            audits.add(log)
+        }
+
+        _verificationAudits.value = audits
+        return audits
+    }
+
+    fun manuallySetUserBadgeStatus(userId: String, status: BadgeStatus, reason: String) {
+        if (_currentUser.value.id == userId) {
+            _currentUser.update { it.copy(badgeStatus = status, badgeRevocationReason = reason) }
+        }
+        _users.update { list ->
+            list.map { if (it.id == userId) it.copy(badgeStatus = status, badgeRevocationReason = reason) else it }
+        }
+    }
+
+    // --- Subscription Refunds (Single Premium Plan) ---
+    fun requestSubscriptionRefund(reason: RefundReason): SubscriptionRefund {
+        val code = "REF-${UUID.randomUUID().toString().take(6).uppercase()}"
+        val refund = SubscriptionRefund(
+            refundId = "rf_${UUID.randomUUID().toString().take(8)}",
+            planName = "Savor Pro Chef",
+            amountUsd = 9.99,
+            reason = reason,
+            requestedAt = System.currentTimeMillis(),
+            status = "PROCESSED_REFUNDED",
+            confirmationCode = code
+        )
+        _refundHistory.update { listOf(refund) + it }
+        // Revoke premium access and revert badge
+        _currentUser.update { user ->
+            user.copy(
+                isPremium = false,
+                isVerified = user.followersCount >= 10000,
+                badgeStatus = if (user.followersCount >= 10000) BadgeStatus.ACTIVE else BadgeStatus.EXPIRED,
+                badgeRevocationReason = "Subscription refunded on ${java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.US).format(java.util.Date())}"
+            )
+        }
+        return refund
+    }
+
+    // --- Gift Subscriptions & Promo Codes ---
+    fun redeemPromoCode(code: String): Result<String> {
+        val trimmed = code.trim().uppercase()
+        val found = _promoCodes.value.find { it.code.equals(trimmed, ignoreCase = true) }
+        return if (found != null) {
+            _currentUser.update { it.copy(isPremium = true, isVerified = true, badgeStatus = BadgeStatus.ACTIVE) }
+            _promoCodes.update { list ->
+                list.map { if (it.code == found.code) it.copy(isRedeemed = true) else it }
+            }
+            Result.success("Success! Activated: ${found.discountDescription}")
+        } else if (trimmed.startsWith("GIFT-")) {
+            _currentUser.update { it.copy(isPremium = true, isVerified = true, badgeStatus = BadgeStatus.ACTIVE) }
+            Result.success("Gift subscription redeemed! Welcome to Savor Pro Chef.")
+        } else {
+            Result.failure(IllegalArgumentException("Invalid or expired promotional code."))
+        }
+    }
+
+    fun generateGiftCode(recipientUsername: String): String {
+        val code = "GIFT-${UUID.randomUUID().toString().take(8).uppercase()}"
+        val newPromo = PromoCodeItem(
+            code = code,
+            discountDescription = "Gifted by @${_currentUser.value.username} for @$recipientUsername",
+            freeDaysOrMonths = "1 Month Free Savor Pro"
+        )
+        _promoCodes.update { listOf(newPromo) + it }
+        return code
+    }
+
+    // --- SMS Notifications ---
+    fun updateSmsSettings(settings: SmsNotificationSettings) {
+        _smsSettings.value = settings
     }
 
     fun toggleDarkMode() {
@@ -1521,6 +1862,7 @@ class SavorRepository {
     fun getTotalUnreadCount(): Int {
         val unreadActivities = _activities.value.count { !it.isRead }
         val unreadConvos = _conversations.value.sumOf { it.unreadCount }
-        return unreadActivities + unreadConvos
+        val unreadGroups = _groupConversations.value.sumOf { it.unreadCount }
+        return unreadActivities + unreadConvos + unreadGroups
     }
 }
